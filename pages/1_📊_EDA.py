@@ -803,9 +803,7 @@ def main():
 
         st.subheader("Detailed Breakdown")
         st.dataframe(
-            missing_df.style.background_gradient(
-                subset=['Completeness %'], cmap='RdYlGn', vmin=0, vmax=100
-            ),
+            missing_df,
             use_container_width=True, hide_index=True,
         )
 
