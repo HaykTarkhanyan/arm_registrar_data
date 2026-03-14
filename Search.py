@@ -3,10 +3,12 @@ Armenian Voter Registry - Search Application
 Main search interface with person detail cards and per-name analytics.
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from pathlib import Path
 
 from data import load_data
 from filters import filter_data
@@ -23,6 +25,29 @@ st.set_page_config(
     page_icon="\U0001f50d",
     layout="wide",
 )
+
+
+def _get_app_password() -> str | None:
+    """Get app password from Streamlit secrets, .env, or environment."""
+    try:
+        return st.secrets["APP_PASSWORD"]
+    except Exception:
+        pass
+    pw = os.environ.get("APP_PASSWORD")
+    if not pw:
+        env_path = Path(".env")
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("APP_PASSWORD="):
+                    pw = line.split("=", 1)[1].strip()
+                    break
+    return pw
+
+
+def check_authenticated() -> bool:
+    """Check if user has entered the correct password."""
+    return st.session_state.get("authenticated", False)
 
 
 # === Data Loading ===
@@ -111,6 +136,8 @@ def find_possible_siblings(df, person):
 # === Display Components ===
 def display_person_card(person, df, global_stats, expanded=False, card_idx=0):
     pid = f"{card_idx}_{person.name}"
+    authenticated = check_authenticated()
+
     with st.expander(
         f"**{person['name']} {person['surname']}** \u2014 "
         f"{person['age']} years, {person['region']}",
@@ -129,8 +156,9 @@ def display_person_card(person, df, global_stats, expanded=False, card_idx=0):
                 st.markdown("##### \U0001f464 Personal Info")
                 st.write(f"**Name:** {person['name']}")
                 st.write(f"**Surname:** {person['surname']}")
-                st.write(f"**Patronymic:** {person['patronymic']}")
-                st.write(f"**Birth Date:** {person['birth_date']}")
+                if authenticated:
+                    st.write(f"**Patronymic:** {person['patronymic']}")
+                    st.write(f"**Birth Date:** {person['birth_date']}")
                 st.write(f"**Age:** {person['age']}")
 
                 sign, symbol = get_zodiac_sign(person['birth_date'])
@@ -145,11 +173,14 @@ def display_person_card(person, df, global_stats, expanded=False, card_idx=0):
             with col2:
                 st.markdown("##### \U0001f4cd Location")
                 st.write(f"**Region:** {person['region']}")
-                st.write(f"**Community:** {person['community']}")
-                st.write(f"**Residence:** {person['residence']}")
-                st.write(f"**Address:** {person['address']}")
-                st.write(f"**Precinct:** {person['precinct']}")
-                st.write(f"**Polling Station:** {person['polling_station']}")
+                if authenticated:
+                    st.write(f"**Community:** {person['community']}")
+                    st.write(f"**Residence:** {person['residence']}")
+                    st.write(f"**Address:** {person['address']}")
+                    st.write(f"**Precinct:** {person['precinct']}")
+                    st.write(f"**Polling Station:** {person['polling_station']}")
+                else:
+                    st.caption("Detailed location requires password")
 
             with col3:
                 st.markdown("##### \U0001f4ca Statistics")
@@ -174,36 +205,38 @@ def display_person_card(person, df, global_stats, expanded=False, card_idx=0):
                 st.write(f"**People with same name:** {name_count:,}")
                 st.write(f"**People with same surname:** {surname_count:,}")
 
-            # Household members
-            st.markdown("---")
-            household = find_household_members(df, person)
+            # Sensitive sections — only shown when authenticated
+            if authenticated:
+                # Household members
+                st.markdown("---")
+                household = find_household_members(df, person)
 
-            if len(household) > 0:
-                st.markdown(f"##### \U0001f3e0 Household Members ({len(household)})")
-                hh_display = household[
-                    ['name', 'surname', 'patronymic', 'age', 'birth_date']
-                ].sort_values('age', ascending=False)
-                st.dataframe(hh_display, use_container_width=True, hide_index=True)
+                if len(household) > 0:
+                    st.markdown(f"##### \U0001f3e0 Household Members ({len(household)})")
+                    hh_display = household[
+                        ['name', 'surname', 'patronymic', 'age', 'birth_date']
+                    ].sort_values('age', ascending=False)
+                    st.dataframe(hh_display, use_container_width=True, hide_index=True)
 
-                ages = [person['age']] + household['age'].tolist()
-                col_a, col_b, col_c = st.columns(3)
-                col_a.metric("Household Size", len(ages))
-                col_b.metric("Age Range", f"{min(ages)} - {max(ages)}")
-                col_c.metric("Average Age", f"{np.mean(ages):.0f}")
-            else:
-                st.info("\U0001f3e0 No other household members found at this address")
+                    ages = [person['age']] + household['age'].tolist()
+                    col_a, col_b, col_c = st.columns(3)
+                    col_a.metric("Household Size", len(ages))
+                    col_b.metric("Age Range", f"{min(ages)} - {max(ages)}")
+                    col_c.metric("Average Age", f"{np.mean(ages):.0f}")
+                else:
+                    st.info("\U0001f3e0 No other household members found at this address")
 
-            # Possible siblings
-            siblings = find_possible_siblings(df, person)
-            if len(siblings) > 0:
-                st.markdown(
-                    f"##### \U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466 "
-                    f"Possible Siblings ({len(siblings)})"
-                )
-                st.dataframe(
-                    siblings[['name', 'surname', 'patronymic', 'age', 'birth_date', 'region', 'address']],
-                    use_container_width=True, hide_index=True,
-                )
+                # Possible siblings
+                siblings = find_possible_siblings(df, person)
+                if len(siblings) > 0:
+                    st.markdown(
+                        f"##### \U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466 "
+                        f"Possible Siblings ({len(siblings)})"
+                    )
+                    st.dataframe(
+                        siblings[['name', 'surname', 'patronymic', 'age', 'birth_date', 'region', 'address']],
+                        use_container_width=True, hide_index=True,
+                    )
 
         # ── Tab 2: Name & Surname Analytics ──────────────────────
         with card_tab2:
@@ -351,6 +384,28 @@ def main():
 
     # Sidebar
     with st.sidebar:
+        st.markdown("### \U0001f512 Access")
+        if not check_authenticated():
+            entered_pw = st.text_input(
+                "Password (for detailed info)",
+                type="password",
+                placeholder="Enter password",
+            )
+            if entered_pw:
+                correct_pw = _get_app_password()
+                if entered_pw == correct_pw:
+                    st.session_state["authenticated"] = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect password")
+            st.caption("Without password: name, surname, age, region only")
+        else:
+            st.success("Full access enabled")
+            if st.button("Lock", use_container_width=True):
+                st.session_state["authenticated"] = False
+                st.rerun()
+
+        st.markdown("---")
         st.markdown("### \U0001f4ca Database Stats")
         st.metric("Total Records", f"{len(df):,}")
         st.metric("Unique Names", f"{df['name'].nunique():,}")
