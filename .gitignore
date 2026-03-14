@@ -1,3 +1,11 @@
+# Data files (raw, unencrypted)
+*.parquet
+eda_cache.pkl
+
+# Allow encrypted versions into the repo
+!*.parquet.enc
+!eda_cache.pkl.enc
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -133,6 +141,9 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
+
+# Streamlit secrets (contains encryption key)
+.streamlit/secrets.toml
 
 # Environments
 .env
