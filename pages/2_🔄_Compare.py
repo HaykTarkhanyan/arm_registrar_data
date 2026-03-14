@@ -200,10 +200,12 @@ def compare_names(df):
         with col1:
             if len(df1) > 0:
                 r1 = df1['region'].value_counts()
-                fig = px.pie(
-                    names=r1.index, values=r1.values,
-                    title=str(display_name1), hole=0.3,
+                fig = px.bar(
+                    x=r1.values, y=r1.index, orientation='h',
+                    title=str(display_name1),
+                    labels={'x': 'Count', 'y': 'Region'},
                 )
+                fig.update_layout(yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info(f"No records found for {name1}")
@@ -211,10 +213,13 @@ def compare_names(df):
         with col2:
             if len(df2) > 0:
                 r2 = df2['region'].value_counts()
-                fig = px.pie(
-                    names=r2.index, values=r2.values,
-                    title=str(display_name2), hole=0.3,
+                fig = px.bar(
+                    x=r2.values, y=r2.index, orientation='h',
+                    title=str(display_name2),
+                    labels={'x': 'Count', 'y': 'Region'},
+                    color_discrete_sequence=['#ff7f0e'],
                 )
+                fig.update_layout(yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info(f"No records found for {name2}")

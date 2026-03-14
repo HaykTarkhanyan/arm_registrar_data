@@ -117,12 +117,13 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
-            fig = px.pie(
-                names=s['generation_counts'].index,
-                values=s['generation_counts'].values,
+            gen = s['generation_counts'].sort_values(ascending=True)
+            fig = px.bar(
+                x=gen.values, y=gen.index, orientation='h',
                 title="Population by Generation",
-                hole=0.4,
+                labels={'x': 'Count', 'y': 'Generation'},
             )
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("\U0001f4ca Key Demographic Insights")
@@ -321,22 +322,25 @@ def main():
         col1, col2 = st.columns(2)
 
         with col1:
-            fig = px.pie(
-                names=s['region_counts'].index,
-                values=s['region_counts'].values,
+            fig = px.bar(
+                x=s['region_counts'].values, y=s['region_counts'].index,
+                orientation='h',
                 title="Population by Region",
-                hole=0.3,
+                labels={'x': 'Population', 'y': 'Region'},
             )
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             fig = px.bar(
-                x=s['region_counts'].values, y=s['region_counts'].index,
-                orientation='h',
-                title="Population by Region (Bar Chart)",
-                labels={'x': 'Population', 'y': 'Region'},
+                x=s['region_counts'].index,
+                y=s['region_counts'].values,
+                title="Population by Region",
+                labels={'x': 'Region', 'y': 'Population'},
+                color=s['region_counts'].values,
+                color_continuous_scale='Viridis',
             )
-            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+            fig.update_layout(showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("\U0001f4ca Average Age by Region")
@@ -457,35 +461,54 @@ def main():
     # ── Tab: Birthdays ─────────────────────────────────────────────
     with tab_bday:
         st.header("\U0001f382 Birthday Analysis")
+        st.caption("January 1st records are excluded (registration artifacts)")
 
-        # Key metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Most Common Birthday", s['most_common_birthday'],
-                     f"{s['most_common_birthday_count']:,} people")
-        col2.metric("Least Common Birthday", s['least_common_birthday'],
-                     f"{s['least_common_birthday_count']:,} people")
-        col3.metric("Jan 1st Birthdays", f"{s['jan1_births']:,}",
-                     f"{s['jan1_pct']:.1f}% of total")
+        # Key metrics (exclude Jan 1)
+        mmdd = s['birthday_mmdd_counts']
+        mmdd_no_jan1 = mmdd.drop('01-01', errors='ignore')
 
-        # Daily distribution across the year
+        col1, col2 = st.columns(2)
+        most_common = mmdd_no_jan1.idxmax()
+        least_common_no_leap = mmdd_no_jan1.drop('02-29', errors='ignore')
+        col1.metric("Most Common Birthday", most_common,
+                     f"{int(mmdd_no_jan1[most_common]):,} people")
+        col2.metric("Least Common Birthday", least_common_no_leap.idxmin(),
+                     f"{int(least_common_no_leap.min()):,} people")
+
+        # Daily distribution across the year (with actual dates, excluding Jan 1)
         st.subheader("\U0001f4c5 Birthdays by Day of Year")
         doy = s['birthday_doy_counts']
         if len(doy) > 0:
+            # Remove day 1 (Jan 1st)
+            doy_filtered = doy.drop(1, errors='ignore')
+            # Convert day-of-year to date strings using year 2000 as reference
+            import datetime
+            date_labels = []
+            counts = []
+            for day_num, count in doy_filtered.items():
+                try:
+                    dt = datetime.date(2000, 1, 1) + datetime.timedelta(days=int(day_num) - 1)
+                    date_labels.append(dt.strftime('%b %d'))
+                    counts.append(count)
+                except (ValueError, OverflowError):
+                    pass
+
             fig = px.bar(
-                x=doy.index, y=doy.values,
+                x=date_labels, y=counts,
                 title="Number of People Born on Each Day of the Year",
-                labels={'x': 'Day of Year (1 = Jan 1)', 'y': 'Count'},
+                labels={'x': 'Date', 'y': 'Count'},
             )
-            fig.update_layout(height=350, bargap=0)
+            fig.update_layout(height=350, bargap=0, xaxis=dict(dtick=30))
             st.plotly_chart(fig, use_container_width=True)
 
-        # Heatmap: month x day
+        # Heatmap: month x day (exclude Jan 1)
         st.subheader("\U0001f5d3\ufe0f Birthday Heatmap (Month x Day)")
-        mmdd = s['birthday_mmdd_counts']
         if len(mmdd) > 0:
             import numpy as np
             heatmap_data = np.zeros((12, 31))
             for md, count in mmdd.items():
+                if md == '01-01':
+                    continue
                 try:
                     m, d = int(md[:2]), int(md[3:])
                     heatmap_data[m - 1][d - 1] = count
@@ -563,10 +586,15 @@ def main():
         st.header("\U0001f52e Fun Insights")
 
         st.subheader("\u2648 Zodiac Sign Distribution")
-        fig = px.pie(
-            names=s['zodiac_counts'].index, values=s['zodiac_counts'].values,
-            title="Population by Zodiac Sign", hole=0.4,
+        zodiac = s['zodiac_counts']
+        fig = px.bar(
+            x=zodiac.index, y=zodiac.values,
+            title="Population by Zodiac Sign",
+            labels={'x': 'Zodiac Sign', 'y': 'Count'},
+            color=zodiac.values,
+            color_continuous_scale='Sunset',
         )
+        fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
         col1, col2 = st.columns(2)
