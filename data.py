@@ -13,12 +13,12 @@ DATA_PATH = "elections_cleaned.parquet"
 DATA_PATH_ENC = "elections_cleaned.parquet.enc"
 
 
-def _get_key() -> bytes | None:
-    """Get decryption key from Streamlit secrets, .env, or environment."""
+def get_key_string() -> str | None:
+    """Get decryption key as a string from Streamlit secrets, .env, or environment."""
     # 1. Streamlit secrets (deployed app)
     try:
         import streamlit as st
-        return st.secrets["DATA_KEY"].encode()
+        return st.secrets["DATA_KEY"]
     except Exception:
         pass
     # 2. Environment variable / .env file
@@ -31,9 +31,13 @@ def _get_key() -> bytes | None:
                 if line.startswith("DATA_KEY="):
                     key = line.split("=", 1)[1].strip()
                     break
-    if key:
-        return key.encode()
-    return None
+    return key or None
+
+
+def _get_key() -> bytes | None:
+    """Get decryption key as bytes."""
+    key = get_key_string()
+    return key.encode() if key else None
 
 
 def _decrypt_bytes(encrypted_path: str, key: bytes) -> bytes:
@@ -47,9 +51,9 @@ def compute_age(birth_date_series: pd.Series) -> pd.Series:
     """Compute age from birth_date strings (DD/MM/YYYY) using vectorized operations."""
     parsed = pd.to_datetime(birth_date_series, format='%d/%m/%Y', errors='coerce')
     today = pd.Timestamp.now()
-    age = (today - parsed).dt.days // 365
 
-    # Adjust for people who haven't had their birthday yet this year
+    # Use year difference, then adjust for those who haven't had their birthday yet
+    age = today.year - parsed.dt.year
     birth_md = parsed.dt.month * 100 + parsed.dt.day
     today_md = today.month * 100 + today.day
     age = age.where(birth_md <= today_md, age - 1)

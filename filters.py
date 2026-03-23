@@ -30,7 +30,7 @@ def filter_data(
         "exact" for case-insensitive exact matching,
         "partial" for case-insensitive substring matching.
     """
-    result = df.copy()
+    result = df
 
     text_fields = {
         'surname': surname,

@@ -98,9 +98,22 @@ def calculate_days_until_birthday(birth_date: str) -> tuple:
     try:
         day, month = int(birth_date[:2]), int(birth_date[3:5])
         today = date.today()
-        this_year = date(today.year, month, day)
+        # Handle Feb 29 births: use Feb 28 in non-leap years
+        try:
+            this_year = date(today.year, month, day)
+        except ValueError:
+            if month == 2 and day == 29:
+                this_year = date(today.year, 2, 28)
+            else:
+                return -1, False
         if this_year < today:
-            next_bday = date(today.year + 1, month, day)
+            try:
+                next_bday = date(today.year + 1, month, day)
+            except ValueError:
+                if month == 2 and day == 29:
+                    next_bday = date(today.year + 1, 2, 28)
+                else:
+                    return -1, False
         elif this_year == today:
             return 0, True
         else:

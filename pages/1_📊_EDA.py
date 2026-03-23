@@ -3,12 +3,13 @@ EDA Page - Reads pre-computed statistics from eda_cache.pkl.
 Run `python precompute_eda.py` to regenerate the cache.
 """
 
-import os
 import streamlit as st
 import pandas as pd
 import pickle
 from pathlib import Path
 import plotly.express as px
+
+from data import get_key_string
 
 CACHE_PATH = "eda_cache.pkl"
 CACHE_PATH_ENC = "eda_cache.pkl.enc"
@@ -20,24 +21,6 @@ st.set_page_config(
 )
 
 
-def _get_key() -> str | None:
-    """Get decryption key from Streamlit secrets, .env, or environment."""
-    try:
-        return st.secrets["DATA_KEY"]
-    except Exception:
-        pass
-    key = os.environ.get("DATA_KEY")
-    if not key:
-        env_path = Path(".env")
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if line.startswith("DATA_KEY="):
-                    key = line.split("=", 1)[1].strip()
-                    break
-    return key
-
-
 @st.cache_data
 def load_stats():
     if Path(CACHE_PATH).exists():
@@ -45,7 +28,7 @@ def load_stats():
             return pickle.load(f)
     elif Path(CACHE_PATH_ENC).exists():
         from cryptography.fernet import Fernet
-        key = _get_key()
+        key = get_key_string()
         if not key:
             raise RuntimeError(
                 "Encrypted cache found but DATA_KEY is not set. "

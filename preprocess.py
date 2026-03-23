@@ -7,8 +7,6 @@ Preprocessing script for Armenian Registrar Data
 """
 
 import pandas as pd
-from datetime import datetime
-import numpy as np
 
 
 # Column mapping: Armenian -> English
@@ -44,18 +42,10 @@ def preprocess_data(input_path: str = "elections.parquet",
     df = df.rename(columns=COLUMN_MAPPING)
     print(f"Columns: {list(df.columns)}")
 
-    # 2. Calculate age using vectorized operations
-    print("\nCalculating ages (vectorized)...")
-    df['birth_date_parsed'] = pd.to_datetime(df['birth_date'], format='%d/%m/%Y', errors='coerce')
-
-    today = pd.Timestamp.now()
-    df['age'] = (today - df['birth_date_parsed']).dt.days // 365
-
-    birth_month_day = df['birth_date_parsed'].dt.month * 100 + df['birth_date_parsed'].dt.day
-    today_month_day = today.month * 100 + today.day
-    df.loc[birth_month_day > today_month_day, 'age'] -= 1
-
-    df = df.drop(columns=['birth_date_parsed'])
+    # 2. Calculate age using shared logic (also recomputed at runtime by data.py)
+    print("\nCalculating ages...")
+    from data import compute_age
+    df['age'] = compute_age(df['birth_date'])
 
     print(f"Age range: {df['age'].min()} - {df['age'].max()}")
     print(f"Mean age: {df['age'].mean():.1f}")
